@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency System</title>
+    <style>
+        /* ✅ Background with animated gradient effect */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            height: 100vh;
+            background: linear-gradient(-45deg, #ff4e50, #fc913a, #f9d423, #8bc34a);
+            background-size: 400% 400%;
+            animation: gradientBG 10s ease infinite;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #00008B; /* Dark Blue Font Color */
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 1.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ✅ Styled Buttons */
+        .btn {
+            font-size: 18px;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            outline: none;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-danger {
+            background: #ff5722;
+        }
+
+        .btn-danger:hover {
+            background: #ff3d00;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+        }
+
+        /* ✅ Response message style */
+        #responseMessage {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 10px;
+            display: inline-block;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        /* ✅ Note at the bottom */
+        #note {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+    <h2>House to House Emergency Alert System</h2>
+    <h2>( H - H E A S )</h2>
+    <p id="userId">User: </p>
+
+    <!-- 🚨 Send Emergency Signal Button -->
+    <button id="sendSignal" class="btn btn-danger">🚨 Send Emergency Signal</button>
+
+    <!-- ⚠️ False Alarm Button -->
+    <button id="falseAlarm" class="btn btn-warning">⚠️ False Alarm</button>
+
+    <p id="responseMessage"></p> <!-- ✅ Response message area -->
+
+    <!-- 📜 Instructional Note -->
+    <p id="note">⚠️ <strong>Note:</strong> If you accidentally pressed 'Send Emergency Signal' but there is no emergency situation at your house, please press 'False Alarm' immediately to notify the monitoring base.</p>
+
+    <!-- 🔊 False Alarm Sound -->
+    <audio id="falseAlarmSound" src="false_alarm.mp3"></audio>
+
+    <script>
+        const socket = new WebSocket("wss://h-heas.onrender.com"); 
+        const userNames = ["H1 - Zata Family"]; 
+        const userId = userNames[Math.floor(Math.random() * userNames.length)];
+
+        document.getElementById("userId").innerText = `User: ${userId}`;
+
+        socket.onopen = () => console.log("✅ Connected to Monitoring Base.");
+
+        // 🚨 Send Emergency Signal
+        document.getElementById("sendSignal").addEventListener("click", () => {
+            sendMessage("needs help! Contact#:09227985233, 09238659729", "✅ Signal Sent!", "btn-success", false);
+        });
+
+        // ⚠️ Send False Alarm
+        document.getElementById("falseAlarm").addEventListener("click", () => {
+            sendMessage("False Alarm - Please disregard the emergency alert sent.", "⚠️ False Alarm Sent!", "btn-warning", true);
+        });
+
+        function sendMessage(alertText, buttonText, buttonClass, playSound) {
+            const message = JSON.stringify({ sender: userId, alert: alertText });
+            socket.send(message);
+            console.log(`🚨 Message sent from ${userId}: ${alertText}`);
+
+            // ✅ Play sound only for False Alarm
+            if (playSound) {
+                document.getElementById("falseAlarmSound").play();
+            }
+
+            // ✅ Change button feedback temporarily
+            const button = alertText === "needs help!" ? document.getElementById("sendSignal") : document.getElementById("falseAlarm");
+            button.innerText = buttonText;
+            button.classList.remove("btn-danger", "btn-warning", "btn-success");
+            button.classList.add(buttonClass);
+
+            setTimeout(() => {
+                button.innerText = alertText === "needs help!" ? "🚨 Send Emergency Signal" : "⚠️ False Alarm";
+                button.classList.remove("btn-success", "btn-warning");
+                button.classList.add(alertText === "needs help!" ? "btn-danger" : "btn-warning");
+            }, 2000);
+        }
+
+        // ✅ Listen for response from the monitoring base
+        socket.onmessage = async (event) => {
+            try {
+                const data = await event.data.text();
+                const parsedData = JSON.parse(data);
+
+                // ✅ Only show response if it's directed to this user
+                if (parsedData.response) {
+                    document.getElementById("responseMessage").innerText = parsedData.response;
+                    console.log("✅ Response received:", parsedData.response);
+                }
+            } catch (error) {
+                console.error("❌ Error processing response:", error);
+            }
+        };
+
+        socket.onclose = () => console.log("❌ Disconnected from Monitoring Base.");
+    </script>
+</body>
+</html>
